@@ -1,6 +1,6 @@
 const form = document.getElementById("rsvpForm");
 
-form.addEventListener("submit", function (e) {
+form.addEventListener("submit", async function (e) {
   e.preventDefault();
 
   const data = new FormData(form);
@@ -13,8 +13,24 @@ form.addEventListener("submit", function (e) {
     message: data.get("message")
   };
 
-  console.log(result);
-  alert("Ձեր պատասխանը ստացվեց։ Շնորհակալություն։");
+  try {
+    const response = await fetch("/.netlify/functions/send-telegram", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(result)
+    });
 
-  form.reset();
+    if (!response.ok) {
+      throw new Error("Send failed");
+    }
+
+    alert("Ձեր պատասխանը ստացվեց։ Շնորհակալություն։");
+    form.reset();
+
+  } catch (error) {
+    alert("Սխալ տեղի ունեցավ։ Խնդրում ենք փորձել կրկին։");
+    console.error(error);
+  }
 });
