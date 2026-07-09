@@ -1,0 +1,74 @@
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #FFFFFF;
+  color: #2C302B;
+}
+
+.container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 120px;
+}
+
+h1 {
+  font-family: "ArmAllegroU", serif;
+  font-size: 140px;
+  line-height: 180px;
+  font-weight: 400;
+  color: #2C302B;
+}
+
+h2 {
+  font-family: "ArmAllegroU", serif;
+  font-size: 100px;
+  line-height: 120px;
+  letter-spacing: 0.04em;
+  font-weight: 400;
+  color: #2C302B;
+}
+
+p {
+  font-family: "SHK Aida", serif;
+  font-size: 32px;
+  line-height: 56px;
+  letter-spacing: 0.08em;
+  color: #2C302B;
+}
+
+span {
+  display: inline-block;
+  font-family: "SHK Aida", serif;
+  font-size: 40px;
+  line-height: 56px;
+  letter-spacing: 0.08em;
+  color: #2C302B;
+}
+
+strong {
+  display: block;
+  font-family: "SHK Aida", serif;
+  font-size: 32px;
+  line-height: 56px;
+  letter-spacing: 0.08em;
+  font-weight: 400;
+  color: #2C302B;
+}
+
+input,
+textarea,
+label,
+button {
+  font-family: "SHK Aida", serif;
+  color: #2C302B;
+}
+
+::placeholder {
+  color: #A6A6A6;
+}
