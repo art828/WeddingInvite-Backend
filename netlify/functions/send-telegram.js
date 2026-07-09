@@ -1,31 +1,56 @@
-exports.handler = async (event) => {
+exports.handler = async function (event) {
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      body: "Method Not Allowed"
+    };
+  }
+
   try {
     const data = JSON.parse(event.body);
+
+    const message = `
+🎉 Նոր RSVP
+
+👤 Անուն: ${data.name || "-"}
+👰 Կողմ: ${data.side || "-"}
+✅ Պատասխան: ${data.attendance || "-"}
+👥 Հյուրերի թիվ: ${data.guests || "-"}
+💬 Մեկնաբանություն: ${data.message || "-"}
+`;
 
     const response = await fetch(
       `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           chat_id: process.env.TELEGRAM_CHAT_ID,
-          text: JSON.stringify(data, null, 2),
-        }),
+          text: message
+        })
       }
     );
 
-    const telegram = await response.text();
+    const telegramText = await response.text();
+
+    if (!response.ok) {
+      return {
+        statusCode: 500,
+        body: telegramText
+      };
+    }
 
     return {
-      statusCode: response.status,
-      body: telegram,
+      statusCode: 200,
+      body: telegramText
     };
-  } catch (e) {
+
+  } catch (error) {
     return {
       statusCode: 500,
-      body: e.toString(),
+      body: error.message
     };
   }
 };

@@ -23,7 +23,9 @@ form.addEventListener("submit", async function (e) {
     });
 
     if (!response.ok) {
-      throw new Error("Send failed");
+      const txt = await response.text();
+      alert(txt);
+      return;
     }
 
     alert("Ձեր պատասխանը ստացվեց։ Շնորհակալություն։");
@@ -34,3 +36,4 @@ form.addEventListener("submit", async function (e) {
     console.error(error);
   }
 });
+
