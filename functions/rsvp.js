@@ -17,7 +17,10 @@ async function sendTelegramMessage(env, chatId, text) {
 
   if (!response.ok || !result.ok) {
     console.error("Telegram error:", result);
-    throw new Error(result.description || "Telegram message could not be sent.");
+
+    throw new Error(
+      result.description || "Telegram հաղորդագրությունը չուղարկվեց։"
+    );
   }
 }
 
@@ -34,6 +37,14 @@ export async function onRequestPost(context) {
   const { request, env } = context;
 
   try {
+    if (
+      !env.TELEGRAM_BOT_TOKEN ||
+      !env.SUPABASE_URL ||
+      !env.SUPABASE_SECRET_KEY
+    ) {
+      throw new Error("Cloudflare-ի environment variables-ը բացակայում են։");
+    }
+
     const data = await request.json();
 
     const weddingId = data.weddingId?.trim();
@@ -54,14 +65,23 @@ export async function onRequestPost(context) {
 
     const guestCount =
       attendance === "Մենք կգանք"
-        ? Math.max(parseInt(data.guests || "1"), 1)
+        ? Math.max(Number.parseInt(data.guests, 10) || 1, 1)
         : 0;
 
+    const baseUrl = env.SUPABASE_URL
+      .replace(/\/rest\/v1\/?$/i, "")
+      .replace(/\/+$/, "");
+
+    const query = new URLSearchParams({
+      wedding_id: `eq.${weddingId}`,
+      is_active: "eq.true",
+      select: "id,wedding_id,couple_names,telegram_chat_id"
+    });
+
     const weddingResponse = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/weddings?wedding_id=eq.${encodeURIComponent(
-        weddingId
-      )}&is_active=eq.true&select=id,wedding_id,couple_names,telegram_chat_id`,
+      `${baseUrl}/rest/v1/weddings?${query.toString()}`,
       {
+        method: "GET",
         headers: {
           apikey: env.SUPABASE_SECRET_KEY,
           Accept: "application/json"
@@ -69,26 +89,32 @@ export async function onRequestPost(context) {
       }
     );
 
+    const weddingResponseText = await weddingResponse.text();
+
     if (!weddingResponse.ok) {
-      console.error(await weddingResponse.text());
+      console.error(
+        "Wedding lookup error:",
+        weddingResponse.status,
+        weddingResponseText
+      );
 
       return jsonResponse(
         {
           success: false,
-          message: "Չհաջողվեց գտնել հարսանիքը։"
+          message: `Չհաջողվեց գտնել հարսանիքը։ Սխալ՝ ${weddingResponse.status}`
         },
         500
       );
     }
 
-    const weddings = await weddingResponse.json();
+    const weddings = JSON.parse(weddingResponseText);
     const wedding = weddings[0];
 
     if (!wedding) {
       return jsonResponse(
         {
           success: false,
-          message: "Հարսանիքը չի գտնվել։"
+          message: "Հարսանիքը չի գտնվել կամ ակտիվ չէ։"
         },
         404
       );
@@ -98,14 +124,14 @@ export async function onRequestPost(context) {
       return jsonResponse(
         {
           success: false,
-          message: "Telegram-ը դեռ միացված չէ։"
+          message: "Հարսն ու փեսան դեռ չեն միացրել Telegram bot-ը։"
         },
         409
       );
     }
 
     const insertResponse = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/rsvp_responses`,
+      `${baseUrl}/rest/v1/rsvp_responses`,
       {
         method: "POST",
         headers: {
@@ -124,13 +150,19 @@ export async function onRequestPost(context) {
       }
     );
 
+    const insertResponseText = await insertResponse.text();
+
     if (!insertResponse.ok) {
-      console.error(await insertResponse.text());
+      console.error(
+        "RSVP insert error:",
+        insertResponse.status,
+        insertResponseText
+      );
 
       return jsonResponse(
         {
           success: false,
-          message: "Չհաջողվեց պահպանել RSVP-ն։"
+          message: `Չհաջողվեց պահպանել պատասխանը։ Սխալ՝ ${insertResponse.status}`
         },
         500
       );
@@ -140,7 +172,6 @@ export async function onRequestPost(context) {
 🎉 Նոր RSVP
 
 💍 Հարսանիք՝ ${wedding.couple_names}
-
 👤 Անուն՝ ${name}
 👰🤵 Կողմ՝ ${side}
 ✅ Պատասխան՝ ${attendance}
@@ -156,15 +187,15 @@ export async function onRequestPost(context) {
 
     return jsonResponse({
       success: true,
-      message: "Պատասխանը հաջողությամբ ուղարկվեց։"
+      message: "Պատասխանը հաջողությամբ ուղարկվել է։"
     });
   } catch (error) {
-    console.error("RSVP Error:", error);
+    console.error("RSVP error:", error);
 
     return jsonResponse(
       {
         success: false,
-        message: error.message
+        message: error.message || "Սերվերի սխալ է տեղի ունեցել։"
       },
       500
     );

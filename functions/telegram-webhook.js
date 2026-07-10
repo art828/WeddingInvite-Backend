@@ -17,8 +17,9 @@ async function sendTelegramMessage(env, chatId, text) {
 
   if (!response.ok || !result.ok) {
     console.error("Telegram send error:", result);
+
     throw new Error(
-      result.description || "Telegram message could not be sent"
+      result.description || "Telegram հաղորդագրությունը չուղարկվեց։"
     );
   }
 }
@@ -43,27 +44,32 @@ export async function onRequestPost(context) {
       !env.SUPABASE_URL ||
       !env.SUPABASE_SECRET_KEY
     ) {
-      throw new Error("Cloudflare environment variables are missing");
+      throw new Error("Cloudflare-ի environment variables-ը բացակայում են։");
     }
 
     const update = await request.json();
     const message = update.message;
 
     if (!message?.chat) {
-      return jsonResponse({ success: true });
+      return jsonResponse({
+        success: true
+      });
     }
 
     chatId = String(message.chat.id);
+
     const text = message.text?.trim() || "";
 
     if (!text.startsWith("/start")) {
       await sendTelegramMessage(
         env,
         chatId,
-        "Բարի գալուստ։ Ձեր Telegram-ը միացնելու համար օգտագործեք ձեզ ուղարկված հատուկ հղումը։"
+        "Բարի գալուստ։ Ձեր Telegram հաշիվը միացնելու համար օգտագործեք ձեզ ուղարկված հատուկ հղումը։"
       );
 
-      return jsonResponse({ success: true });
+      return jsonResponse({
+        success: true
+      });
     }
 
     const parts = text.split(/\s+/);
@@ -76,10 +82,14 @@ export async function onRequestPost(context) {
         "❌ Միացման կոդը բացակայում է։ Օգտագործեք ձեզ ուղարկված հատուկ հղումը։"
       );
 
-      return jsonResponse({ success: true });
+      return jsonResponse({
+        success: true
+      });
     }
 
-    const baseUrl = env.SUPABASE_URL.replace(/\/+$/, "");
+    const baseUrl = env.SUPABASE_URL
+      .replace(/\/rest\/v1\/?$/i, "")
+      .replace(/\/+$/, "");
 
     const query = new URLSearchParams({
       connection_code: `eq.${connectionCode}`,
@@ -119,10 +129,12 @@ export async function onRequestPost(context) {
       await sendTelegramMessage(
         env,
         chatId,
-        `❌ «${connectionCode}» միացման կոդով ակտիվ հարսանիք չի գտնվել։`
+        `❌ «${connectionCode}» կոդով ակտիվ հարսանիք չի գտնվել։`
       );
 
-      return jsonResponse({ success: true });
+      return jsonResponse({
+        success: true
+      });
     }
 
     const updateResponse = await fetch(
@@ -164,7 +176,9 @@ export async function onRequestPost(context) {
 Այսուհետ RSVP պատասխանները կստանաք այս bot-ում։`
     );
 
-    return jsonResponse({ success: true });
+    return jsonResponse({
+      success: true
+    });
   } catch (error) {
     console.error("Webhook error:", error);
 
@@ -178,7 +192,10 @@ export async function onRequestPost(context) {
 Սխալ՝ ${error.message}`
         );
       } catch (telegramError) {
-        console.error("Could not send error message:", telegramError);
+        console.error(
+          "Could not send Telegram error message:",
+          telegramError
+        );
       }
     }
 

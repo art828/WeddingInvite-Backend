@@ -1,18 +1,19 @@
-document
-  .getElementById("rsvpForm")
-  .addEventListener("submit", async function (e) {
-    e.preventDefault();
+const rsvpForm = document.getElementById("rsvpForm");
 
-    const form = e.target;
+if (rsvpForm) {
+  rsvpForm.addEventListener("submit", async function (event) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
     const submitButton = form.querySelector('button[type="submit"]');
 
     const data = {
       weddingId: "olivia-adam",
-      side: form.side.value,
-      name: form.name.value.trim(),
-      attendance: form.attendance.value,
-      guests: form.guests.value,
-      message: form.message.value.trim()
+      side: form.elements.side.value,
+      name: form.elements.name.value.trim(),
+      attendance: form.elements.attendance.value,
+      guests: form.elements.guests.value,
+      message: form.elements.message.value.trim()
     };
 
     try {
@@ -30,16 +31,22 @@ document
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "Չհաջողվեց ուղարկել պատասխանը։");
+        throw new Error(
+          result.message || "Չհաջողվեց ուղարկել պատասխանը։"
+        );
       }
 
       alert("Շնորհակալություն, ձեր պատասխանը ուղարկվել է։");
       form.reset();
     } catch (error) {
       console.error("RSVP error:", error);
-      alert(error.message || "Սխալ տեղի ունեցավ։ Փորձեք կրկին։");
+
+      alert(
+        error.message || "Սխալ տեղի ունեցավ։ Խնդրում ենք փորձել կրկին։"
+      );
     } finally {
       submitButton.disabled = false;
       submitButton.textContent = "Ուղարկել";
     }
   });
+}
