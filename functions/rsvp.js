@@ -1,44 +1,67 @@
-exports.handler = async function (event) {
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: "Method Not Allowed"
-    };
+async function sendTelegramMessage(env, text) {
+  const response = await fetch(
+    `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        chat_id: env.TELEGRAM_CHAT_ID,
+        text
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(error);
   }
+}
+
+export async function onRequestPost(context) {
+  const { request, env } = context;
 
   try {
-    const data = JSON.parse(event.body);
+    const data = await request.json();
 
     const message = `
 🎉 Նոր RSVP
+
+💍 Wedding ID: ${data.weddingId || "-"}
 
 👤 Անուն: ${data.name || "-"}
 👰 Կողմ: ${data.side || "-"}
 ✅ Պատասխան: ${data.attendance || "-"}
 👥 Հյուրերի թիվ: ${data.guests || "-"}
 💬 Մեկնաբանություն: ${data.message || "-"}
-`;
+`.trim();
 
-    await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        chat_id: process.env.TELEGRAM_CHAT_ID,
-        text: message
-      })
+    await sendTelegramMessage(env, message);
+
+    return Response.json({
+      success: true,
+      message: "RSVP received"
     });
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ success: true })
-    };
-
   } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message })
-    };
+    console.error(error);
+
+    return Response.json(
+      {
+        success: false,
+        message: error.message
+      },
+      {
+        status: 500
+      }
+    );
   }
-};
+}
+
+export function onRequestGet() {
+  return Response.json({
+    success: true,
+    message: "RSVP API is working"
+  });
+}
