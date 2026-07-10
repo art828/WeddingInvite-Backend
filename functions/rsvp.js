@@ -17,7 +17,7 @@ async function sendTelegramMessage(env, chatId, text) {
 
   if (!response.ok || !result.ok) {
     console.error("Telegram error:", result);
-    throw new Error("Telegram հաղորդագրությունը չուղարկվեց։");
+    throw new Error(result.description || "Telegram message could not be sent.");
   }
 }
 
@@ -52,34 +52,30 @@ export async function onRequestPost(context) {
       );
     }
 
-    const isAttending = attendance === "Մենք կգանք";
+    const guestCount =
+      attendance === "Մենք կգանք"
+        ? Math.max(parseInt(data.guests || "1"), 1)
+        : 0;
 
-    const guestCount = isAttending
-      ? Math.max(Number.parseInt(data.guests, 10) || 1, 1)
-      : 0;
-
-    // Գտնում ենք հարսանիքը wedding_id-ով
     const weddingResponse = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/weddings` +
-        `?wedding_id=eq.${encodeURIComponent(weddingId)}` +
-        `&is_active=eq.true` +
-        `&select=id,wedding_id,couple_names,telegram_chat_id`,
+      `${env.SUPABASE_URL}/rest/v1/weddings?wedding_id=eq.${encodeURIComponent(
+        weddingId
+      )}&is_active=eq.true&select=id,wedding_id,couple_names,telegram_chat_id`,
       {
         headers: {
           apikey: env.SUPABASE_SECRET_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`
+          Accept: "application/json"
         }
       }
     );
 
     if (!weddingResponse.ok) {
-      const errorText = await weddingResponse.text();
-      console.error("Wedding lookup error:", errorText);
+      console.error(await weddingResponse.text());
 
       return jsonResponse(
         {
           success: false,
-          message: "Հարսանիքի տվյալները չհաջողվեց գտնել։"
+          message: "Չհաջողվեց գտնել հարսանիքը։"
         },
         500
       );
@@ -92,7 +88,7 @@ export async function onRequestPost(context) {
       return jsonResponse(
         {
           success: false,
-          message: "Հարսանիքը չի գտնվել կամ ակտիվ չէ։"
+          message: "Հարսանիքը չի գտնվել։"
         },
         404
       );
@@ -102,20 +98,18 @@ export async function onRequestPost(context) {
       return jsonResponse(
         {
           success: false,
-          message: "Հարսն ու փեսան դեռ չեն միացրել Telegram bot-ը։"
+          message: "Telegram-ը դեռ միացված չէ։"
         },
         409
       );
     }
 
-    // RSVP-ի պահպանում Supabase-ում
     const insertResponse = await fetch(
       `${env.SUPABASE_URL}/rest/v1/rsvp_responses`,
       {
         method: "POST",
         headers: {
           apikey: env.SUPABASE_SECRET_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
           "Content-Type": "application/json",
           Prefer: "return=minimal"
         },
@@ -131,22 +125,22 @@ export async function onRequestPost(context) {
     );
 
     if (!insertResponse.ok) {
-      const errorText = await insertResponse.text();
-      console.error("RSVP insert error:", errorText);
+      console.error(await insertResponse.text());
 
       return jsonResponse(
         {
           success: false,
-          message: "Պատասխանը չհաջողվեց պահպանել։"
+          message: "Չհաջողվեց պահպանել RSVP-ն։"
         },
         500
       );
     }
 
-    const telegramText = `
+    const telegramMessage = `
 🎉 Նոր RSVP
 
 💍 Հարսանիք՝ ${wedding.couple_names}
+
 👤 Անուն՝ ${name}
 👰🤵 Կողմ՝ ${side}
 ✅ Պատասխան՝ ${attendance}
@@ -157,20 +151,20 @@ export async function onRequestPost(context) {
     await sendTelegramMessage(
       env,
       wedding.telegram_chat_id,
-      telegramText
+      telegramMessage
     );
 
     return jsonResponse({
       success: true,
-      message: "Պատասխանը հաջողությամբ ուղարկվել է։"
+      message: "Պատասխանը հաջողությամբ ուղարկվեց։"
     });
   } catch (error) {
-    console.error("RSVP function error:", error);
+    console.error("RSVP Error:", error);
 
     return jsonResponse(
       {
         success: false,
-        message: "Սերվերի սխալ է տեղի ունեցել։"
+        message: error.message
       },
       500
     );

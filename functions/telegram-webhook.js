@@ -17,22 +17,43 @@ async function sendTelegramMessage(env, chatId, text) {
 
   if (!response.ok || !result.ok) {
     console.error("Telegram send error:", result);
-    throw new Error("Telegram message could not be sent");
+    throw new Error(
+      result.description || "Telegram message could not be sent"
+    );
   }
+}
+
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=UTF-8"
+    }
+  });
 }
 
 export async function onRequestPost(context) {
   const { request, env } = context;
 
+  let chatId = null;
+
   try {
+    if (
+      !env.TELEGRAM_BOT_TOKEN ||
+      !env.SUPABASE_URL ||
+      !env.SUPABASE_SECRET_KEY
+    ) {
+      throw new Error("Cloudflare environment variables are missing");
+    }
+
     const update = await request.json();
     const message = update.message;
 
     if (!message?.chat) {
-      return Response.json({ success: true });
+      return jsonResponse({ success: true });
     }
 
-    const chatId = String(message.chat.id);
+    chatId = String(message.chat.id);
     const text = message.text?.trim() || "";
 
     if (!text.startsWith("/start")) {
@@ -42,10 +63,11 @@ export async function onRequestPost(context) {
         "Բարի գալուստ։ Ձեր Telegram-ը միացնելու համար օգտագործեք ձեզ ուղարկված հատուկ հղումը։"
       );
 
-      return Response.json({ success: true });
+      return jsonResponse({ success: true });
     }
 
-    const [, connectionCode] = text.split(/\s+/);
+    const parts = text.split(/\s+/);
+    const connectionCode = parts[1]?.trim();
 
     if (!connectionCode) {
       await sendTelegramMessage(
@@ -54,50 +76,61 @@ export async function onRequestPost(context) {
         "❌ Միացման կոդը բացակայում է։ Օգտագործեք ձեզ ուղարկված հատուկ հղումը։"
       );
 
-      return Response.json({ success: true });
+      return jsonResponse({ success: true });
     }
 
-    // Հարսանիքի որոնում connection_code-ով
+    const baseUrl = env.SUPABASE_URL.replace(/\/+$/, "");
+
+    const query = new URLSearchParams({
+      connection_code: `eq.${connectionCode}`,
+      is_active: "eq.true",
+      select: "id,wedding_id,couple_names"
+    });
+
     const weddingResponse = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/weddings` +
-        `?connection_code=eq.${encodeURIComponent(connectionCode)}` +
-        `&is_active=eq.true` +
-        `&select=id,wedding_id,couple_names`,
+      `${baseUrl}/rest/v1/weddings?${query.toString()}`,
       {
+        method: "GET",
         headers: {
           apikey: env.SUPABASE_SECRET_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`
+          Accept: "application/json"
         }
       }
     );
 
+    const weddingResponseText = await weddingResponse.text();
+
     if (!weddingResponse.ok) {
-      const errorText = await weddingResponse.text();
-      console.error("Supabase lookup error:", errorText);
-      throw new Error("Wedding lookup failed");
+      console.error(
+        "Supabase lookup error:",
+        weddingResponse.status,
+        weddingResponseText
+      );
+
+      throw new Error(
+        `Supabase lookup failed: ${weddingResponse.status}`
+      );
     }
 
-    const weddings = await weddingResponse.json();
+    const weddings = JSON.parse(weddingResponseText);
     const wedding = weddings[0];
 
     if (!wedding) {
       await sendTelegramMessage(
         env,
         chatId,
-        "❌ Միացման կոդը սխալ է կամ հարսանիքն ակտիվ չէ։"
+        `❌ «${connectionCode}» միացման կոդով ակտիվ հարսանիք չի գտնվել։`
       );
 
-      return Response.json({ success: true });
+      return jsonResponse({ success: true });
     }
 
-    // Telegram chat_id-ի պահպանում
     const updateResponse = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/weddings?id=eq.${wedding.id}`,
+      `${baseUrl}/rest/v1/weddings?id=eq.${encodeURIComponent(wedding.id)}`,
       {
         method: "PATCH",
         headers: {
           apikey: env.SUPABASE_SECRET_KEY,
-          Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
           "Content-Type": "application/json",
           Prefer: "return=minimal"
         },
@@ -107,10 +140,18 @@ export async function onRequestPost(context) {
       }
     );
 
+    const updateResponseText = await updateResponse.text();
+
     if (!updateResponse.ok) {
-      const errorText = await updateResponse.text();
-      console.error("Supabase update error:", errorText);
-      throw new Error("Telegram connection could not be saved");
+      console.error(
+        "Supabase update error:",
+        updateResponse.status,
+        updateResponseText
+      );
+
+      throw new Error(
+        `Supabase update failed: ${updateResponse.status}`
+      );
     }
 
     await sendTelegramMessage(
@@ -123,20 +164,33 @@ export async function onRequestPost(context) {
 Այսուհետ RSVP պատասխանները կստանաք այս bot-ում։`
     );
 
-    return Response.json({ success: true });
+    return jsonResponse({ success: true });
   } catch (error) {
     console.error("Webhook error:", error);
 
-    // Telegram-ին վերադարձնում ենք 200, որպեսզի նույն update-ը անվերջ չկրկնի
-    return Response.json({
+    if (chatId) {
+      try {
+        await sendTelegramMessage(
+          env,
+          chatId,
+          `❌ Միացման ժամանակ սխալ տեղի ունեցավ։
+
+Սխալ՝ ${error.message}`
+        );
+      } catch (telegramError) {
+        console.error("Could not send error message:", telegramError);
+      }
+    }
+
+    return jsonResponse({
       success: false,
-      error: "Webhook processing failed"
+      error: error.message
     });
   }
 }
 
 export function onRequestGet() {
-  return Response.json({
+  return jsonResponse({
     success: true,
     message: "Telegram webhook is working"
   });
