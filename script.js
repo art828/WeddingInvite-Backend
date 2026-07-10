@@ -1,33 +1,45 @@
-document.getElementById("rsvpForm").addEventListener("submit", async function (e) {
-  e.preventDefault();
+document
+  .getElementById("rsvpForm")
+  .addEventListener("submit", async function (e) {
+    e.preventDefault();
 
-  const form = e.target;
+    const form = e.target;
+    const submitButton = form.querySelector('button[type="submit"]');
 
-  const data = {
-    side: form.side.value,
-    name: form.name.value,
-    attendance: form.attendance.value,
-    guests: form.guests.value,
-    message: form.message.value
-  };
+    const data = {
+      weddingId: "olivia-adam",
+      side: form.side.value,
+      name: form.name.value.trim(),
+      attendance: form.attendance.value,
+      guests: form.guests.value,
+      message: form.message.value.trim()
+    };
 
-  try {
-    const response = await fetch("/.netlify/functions/rsvp", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(data)
-    });
+    try {
+      submitButton.disabled = true;
+      submitButton.textContent = "Ուղարկվում է...";
 
-    if (!response.ok) {
-      throw new Error("Չուղարկվեց");
+      const response = await fetch("/rsvp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Չհաջողվեց ուղարկել պատասխանը։");
+      }
+
+      alert("Շնորհակալություն, ձեր պատասխանը ուղարկվել է։");
+      form.reset();
+    } catch (error) {
+      console.error("RSVP error:", error);
+      alert(error.message || "Սխալ տեղի ունեցավ։ Փորձեք կրկին։");
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "Ուղարկել";
     }
-
-    alert("Շնորհակալություն, ձեր պատասխանը ուղարկվել է։");
-    form.reset();
-
-  } catch (error) {
-    alert("Սխալ տեղի ունեցավ։ Փորձեք կրկին։");
-  }
-});
+  });
