@@ -311,8 +311,8 @@ function buildStatisticsText(event, responses) {
 
 📝 Ընդհանուր պատասխաններ՝ ${responses.length}
 ✅ Մասնակցելու են՝ ${attendingResponses.length} պատասխան
-👥 Հաստատված հյուրերի թիվ՝ ${totalGuests}
 ❌ Չեն մասնակցելու՝ ${declinedResponses.length} պատասխան
+👥 Հաստատված հյուրերի թիվ՝ ${totalGuests}
 `.trim();
 }
 
