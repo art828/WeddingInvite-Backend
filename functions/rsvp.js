@@ -1,3 +1,9 @@
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type"
+};
+
 async function sendTelegramMessage(env, chatId, text) {
   const response = await fetch(
     `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
@@ -28,7 +34,8 @@ function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
-      "Content-Type": "application/json; charset=UTF-8"
+      "Content-Type": "application/json; charset=UTF-8",
+      ...corsHeaders
     }
   });
 }
@@ -42,7 +49,7 @@ export async function onRequestPost(context) {
       !env.SUPABASE_URL ||
       !env.SUPABASE_SECRET_KEY
     ) {
-      throw new Error("Cloudflare-ի environment variables-ը բացակայում են։");
+      throw new Error("Cloudflare environment variables-ը բացակայում են։");
     }
 
     const data = await request.json();
@@ -200,6 +207,13 @@ export async function onRequestPost(context) {
       500
     );
   }
+}
+
+export function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders
+  });
 }
 
 export function onRequestGet() {
