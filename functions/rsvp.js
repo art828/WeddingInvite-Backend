@@ -4,6 +4,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type"
 };
 
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=UTF-8",
+      ...corsHeaders
+    }
+  });
+}
+
+function getSupabaseBaseUrl(url) {
+  return url
+    .replace(/\/rest\/v1\/?$/i, "")
+    .replace(/\/+$/, "");
+}
+
 async function sendTelegramMessage(env, chatId, text) {
   const response = await fetch(
     `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
@@ -30,16 +46,6 @@ async function sendTelegramMessage(env, chatId, text) {
   }
 }
 
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=UTF-8",
-      ...corsHeaders
-    }
-  });
-}
-
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -49,7 +55,7 @@ export async function onRequestPost(context) {
       !env.SUPABASE_URL ||
       !env.SUPABASE_SECRET_KEY
     ) {
-      throw new Error("Cloudflare environment variables-ը բացակայում են։");
+      throw new Error("Backend-ի environment variables-ը բացակայում են։");
     }
 
     const data = await request.json();
@@ -70,23 +76,51 @@ export async function onRequestPost(context) {
       );
     }
 
-    const guestCount =
-      attendance === "Մենք կգանք"
-        ? Math.max(Number.parseInt(data.guests, 10) || 1, 1)
-        : 0;
+    if (name.length > 150) {
+      return jsonResponse(
+        {
+          success: false,
+          message: "Անունը չափազանց երկար է։"
+        },
+        400
+      );
+    }
 
-    const baseUrl = env.SUPABASE_URL
-      .replace(/\/rest\/v1\/?$/i, "")
-      .replace(/\/+$/, "");
+    if (message && message.length > 1000) {
+      return jsonResponse(
+        {
+          success: false,
+          message: "Մեկնաբանությունը չափազանց երկար է։"
+        },
+        400
+      );
+    }
 
-    const query = new URLSearchParams({
+    const isAttending = attendance === "Մենք կգանք";
+
+    const guestCount = isAttending
+      ? Math.min(
+          Math.max(Number.parseInt(data.guests, 10) || 1, 1),
+          20
+        )
+      : 0;
+
+    const baseUrl = getSupabaseBaseUrl(env.SUPABASE_URL);
+
+    /*
+      1. Գտնում ենք տվյալ հարսանիքը readable wedding_id-ով։
+      2. Վերցնում ենք նրա մշտապես եզակի թվային id-ն։
+      3. Ստուգում ենք՝ ակտիվ է և ժամկետը չի ավարտվել։
+    */
+    const weddingQuery = new URLSearchParams({
       wedding_id: `eq.${weddingId}`,
       is_active: "eq.true",
-      select: "id,wedding_id,couple_names,telegram_chat_id"
+      select:
+        "id,wedding_id,couple_names,telegram_chat_id,connection_code,expires_at"
     });
 
     const weddingResponse = await fetch(
-      `${baseUrl}/rest/v1/weddings?${query.toString()}`,
+      `${baseUrl}/rest/v1/weddings?${weddingQuery.toString()}`,
       {
         method: "GET",
         headers: {
@@ -108,13 +142,28 @@ export async function onRequestPost(context) {
       return jsonResponse(
         {
           success: false,
-          message: `Չհաջողվեց գտնել հարսանիքը։ Սխալ՝ ${weddingResponse.status}`
+          message: "Հարսանիքի տվյալները չհաջողվեց ստանալ։"
         },
         500
       );
     }
 
-    const weddings = JSON.parse(weddingResponseText);
+    let weddings;
+
+    try {
+      weddings = JSON.parse(weddingResponseText);
+    } catch {
+      console.error("Invalid Supabase JSON:", weddingResponseText);
+
+      return jsonResponse(
+        {
+          success: false,
+          message: "Տվյալների բազան սխալ պատասխան է վերադարձրել։"
+        },
+        500
+      );
+    }
+
     const wedding = weddings[0];
 
     if (!wedding) {
@@ -124,6 +173,19 @@ export async function onRequestPost(context) {
           message: "Հարսանիքը չի գտնվել կամ ակտիվ չէ։"
         },
         404
+      );
+    }
+
+    if (
+      wedding.expires_at &&
+      new Date(wedding.expires_at).getTime() <= Date.now()
+    ) {
+      return jsonResponse(
+        {
+          success: false,
+          message: "Այս հրավիրատոմսի պատասխանների ընդունման ժամկետն ավարտվել է։"
+        },
+        410
       );
     }
 
@@ -137,6 +199,13 @@ export async function onRequestPost(context) {
       );
     }
 
+    /*
+      RSVP-ն պահում ենք հիմնական կապով՝ wedding_db_id։
+
+      wedding_id text դաշտը ժամանակավորապես նույնպես պահում ենք,
+      որպեսզի Supabase-ում հեշտ ճանաչես տվյալ հարսանիքը։
+      Հետագայում ցանկության դեպքում այն կարող ենք հեռացնել։
+    */
     const insertResponse = await fetch(
       `${baseUrl}/rest/v1/rsvp_responses`,
       {
@@ -144,10 +213,11 @@ export async function onRequestPost(context) {
         headers: {
           apikey: env.SUPABASE_SECRET_KEY,
           "Content-Type": "application/json",
-          Prefer: "return=minimal"
+          Prefer: "return=representation"
         },
         body: JSON.stringify({
-          wedding_id: weddingId,
+          wedding_db_id: wedding.id,
+          wedding_id: wedding.wedding_id,
           guest_name: name,
           side,
           attendance,
@@ -169,7 +239,7 @@ export async function onRequestPost(context) {
       return jsonResponse(
         {
           success: false,
-          message: `Չհաջողվեց պահպանել պատասխանը։ Սխալ՝ ${insertResponse.status}`
+          message: "Պատասխանը չհաջողվեց պահպանել։"
         },
         500
       );
@@ -186,11 +256,25 @@ export async function onRequestPost(context) {
 💬 Մեկնաբանություն՝ ${message || "-"}
 `.trim();
 
-    await sendTelegramMessage(
-      env,
-      wedding.telegram_chat_id,
-      telegramMessage
-    );
+    try {
+      await sendTelegramMessage(
+        env,
+        wedding.telegram_chat_id,
+        telegramMessage
+      );
+    } catch (telegramError) {
+      console.error("Telegram delivery error:", telegramError);
+
+      return jsonResponse(
+        {
+          success: false,
+          saved: true,
+          message:
+            "Պատասխանը պահպանվել է, բայց Telegram հաղորդագրությունը չի ուղարկվել։"
+        },
+        502
+      );
+    }
 
     return jsonResponse({
       success: true,
@@ -202,7 +286,7 @@ export async function onRequestPost(context) {
     return jsonResponse(
       {
         success: false,
-        message: error.message || "Սերվերի սխալ է տեղի ունեցել։"
+        message: "Սերվերի սխալ է տեղի ունեցել։"
       },
       500
     );
@@ -219,6 +303,6 @@ export function onRequestOptions() {
 export function onRequestGet() {
   return jsonResponse({
     success: true,
-    message: "RSVP API is working"
+    message: "RSVP API v2 is working"
   });
 }
