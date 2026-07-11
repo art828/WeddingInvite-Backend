@@ -5,12 +5,12 @@ const MENU_KEYBOARD = {
       { text: "📋 Հյուրերի ցանկ" }
     ],
     [
-      { text: "👰 Հարսի կողմ" },
-      { text: "🤵 Փեսայի կողմ" }
+      { text: "✅ Մասնակցելու են" },
+      { text: "❌ Չեն մասնակցելու" }
     ],
     [
-      { text: "❌ Չեն գալու" },
-      { text: "🔄 Թարմացնել" }
+      { text: "🔄 Թարմացնել" },
+      { text: "ℹ️ Օգնություն" }
     ]
   ],
   resize_keyboard: true,
@@ -72,7 +72,8 @@ async function sendTelegramMessage(
     console.error("Telegram send error:", result);
 
     throw new Error(
-      result.description || "Telegram հաղորդագրությունը չուղարկվեց։"
+      result.description ||
+        "Telegram հաղորդագրությունը չհաջողվեց ուղարկել։"
     );
   }
 
@@ -94,7 +95,6 @@ async function sendLongTelegramMessage(
 
     if (nextText.length > maxLength) {
       await sendTelegramMessage(env, chatId, currentText);
-
       currentText = line;
     } else {
       currentText = nextText;
@@ -111,7 +111,7 @@ async function sendLongTelegramMessage(
   }
 }
 
-async function findWeddingByConnectionCode(
+async function findEventByConnectionCode(
   env,
   connectionCode
 ) {
@@ -136,22 +136,22 @@ async function findWeddingByConnectionCode(
 
   if (!response.ok) {
     console.error(
-      "Wedding connection lookup error:",
+      "Event connection lookup error:",
       response.status,
       responseText
     );
 
     throw new Error(
-      `Wedding lookup failed: ${response.status}`
+      `Event lookup failed: ${response.status}`
     );
   }
 
-  const weddings = JSON.parse(responseText);
+  const events = JSON.parse(responseText);
 
-  return weddings[0] || null;
+  return events[0] || null;
 }
 
-async function findWeddingByChatId(env, chatId) {
+async function findEventByChatId(env, chatId) {
   const baseUrl = getSupabaseBaseUrl(env.SUPABASE_URL);
 
   const query = new URLSearchParams({
@@ -175,31 +175,31 @@ async function findWeddingByChatId(env, chatId) {
 
   if (!response.ok) {
     console.error(
-      "Wedding chat lookup error:",
+      "Event chat lookup error:",
       response.status,
       responseText
     );
 
     throw new Error(
-      `Wedding chat lookup failed: ${response.status}`
+      `Event chat lookup failed: ${response.status}`
     );
   }
 
-  const weddings = JSON.parse(responseText);
+  const events = JSON.parse(responseText);
 
-  return weddings[0] || null;
+  return events[0] || null;
 }
 
 async function saveTelegramChatId(
   env,
-  weddingDatabaseId,
+  eventDatabaseId,
   chatId
 ) {
   const baseUrl = getSupabaseBaseUrl(env.SUPABASE_URL);
 
   const response = await fetch(
     `${baseUrl}/rest/v1/weddings?id=eq.${encodeURIComponent(
-      weddingDatabaseId
+      eventDatabaseId
     )}`,
     {
       method: "PATCH",
@@ -228,14 +228,14 @@ async function saveTelegramChatId(
   }
 }
 
-async function getWeddingResponses(
+async function getEventResponses(
   env,
-  weddingDatabaseId
+  eventDatabaseId
 ) {
   const baseUrl = getSupabaseBaseUrl(env.SUPABASE_URL);
 
   const query = new URLSearchParams({
-    wedding_db_id: `eq.${weddingDatabaseId}`,
+    wedding_db_id: `eq.${eventDatabaseId}`,
     select:
       "id,guest_name,side,attendance,guests,message,created_at",
     order: "created_at.asc"
@@ -253,13 +253,13 @@ async function getWeddingResponses(
 
   if (!response.ok) {
     console.error(
-      "RSVP list error:",
+      "Guest responses lookup error:",
       response.status,
       responseText
     );
 
     throw new Error(
-      `RSVP list failed: ${response.status}`
+      `Guest responses lookup failed: ${response.status}`
     );
   }
 
@@ -284,6 +284,7 @@ function getGuestCount(response) {
 function formatGuestLine(response, index) {
   const attending = isAttending(response);
   const icon = attending ? "✅" : "❌";
+
   const countText = attending
     ? ` — ${getGuestCount(response)} հյուր`
     : "";
@@ -291,13 +292,9 @@ function formatGuestLine(response, index) {
   return `${index + 1}. ${icon} ${response.guest_name}${countText}`;
 }
 
-async function sendStatistics(
-  env,
-  chatId,
-  wedding,
-  responses
-) {
+function buildStatisticsText(event, responses) {
   const attendingResponses = responses.filter(isAttending);
+
   const declinedResponses = responses.filter(
     (response) => !isAttending(response)
   );
@@ -307,38 +304,28 @@ async function sendStatistics(
     0
   );
 
-  const brideGuests = attendingResponses
-    .filter((response) => response.side === "Հարսի կողմ")
-    .reduce(
-      (total, response) => total + getGuestCount(response),
-      0
-    );
+  return `
+📊 Մասնակցության վիճակագրություն
 
-  const groomGuests = attendingResponses
-    .filter((response) => response.side === "Փեսայի կողմ")
-    .reduce(
-      (total, response) => total + getGuestCount(response),
-      0
-    );
-
-  const text = `
-📊 RSVP վիճակագրություն
-
-💍 ${wedding.couple_names}
+🎉 ${event.couple_names}
 
 📝 Ընդհանուր պատասխաններ՝ ${responses.length}
-✅ Կգան՝ ${attendingResponses.length} պատասխան
-👥 Կգան ընդհանուր՝ ${totalGuests} հյուր
-❌ Չեն գալու՝ ${declinedResponses.length}
-
-👰 Հարսի կողմից՝ ${brideGuests} հյուր
-🤵 Փեսայի կողմից՝ ${groomGuests} հյուր
+✅ Մասնակցելու են՝ ${attendingResponses.length} պատասխան
+👥 Հաստատված հյուրերի թիվ՝ ${totalGuests}
+❌ Չեն մասնակցելու՝ ${declinedResponses.length} պատասխան
 `.trim();
+}
 
+async function sendStatistics(
+  env,
+  chatId,
+  event,
+  responses
+) {
   await sendTelegramMessage(
     env,
     chatId,
-    text,
+    buildStatisticsText(event, responses),
     MENU_KEYBOARD
   );
 }
@@ -346,14 +333,16 @@ async function sendStatistics(
 async function sendAllGuests(
   env,
   chatId,
-  wedding,
+  event,
   responses
 ) {
   if (responses.length === 0) {
     await sendTelegramMessage(
       env,
       chatId,
-      `📋 ${wedding.couple_names}\n\nԴեռ RSVP պատասխաններ չկան։`,
+      `📋 ${event.couple_names}
+
+Դեռ հյուրերի պատասխաններ չկան։`,
       MENU_KEYBOARD
     );
 
@@ -365,49 +354,51 @@ async function sendAllGuests(
   await sendLongTelegramMessage(
     env,
     chatId,
-    `📋 Հյուրերի ցանկ\n\n💍 ${wedding.couple_names}\n`,
+    `📋 Հյուրերի ցանկ
+
+🎉 ${event.couple_names}
+`,
     lines,
     MENU_KEYBOARD
   );
 }
 
-async function sendGuestsBySide(
+async function sendAttendingGuests(
   env,
   chatId,
-  wedding,
-  responses,
-  side
+  event,
+  responses
 ) {
-  const filteredResponses = responses.filter(
-    (response) =>
-      response.side === side && isAttending(response)
-  );
+  const attendingResponses = responses.filter(isAttending);
 
-  const sideIcon =
-    side === "Հարսի կողմ" ? "👰" : "🤵";
-
-  if (filteredResponses.length === 0) {
+  if (attendingResponses.length === 0) {
     await sendTelegramMessage(
       env,
       chatId,
-      `${sideIcon} ${side}\n\nԴեռ եկող հյուրեր չկան։`,
+      `✅ ${event.couple_names}
+
+Դեռ հաստատված մասնակցություններ չկան։`,
       MENU_KEYBOARD
     );
 
     return;
   }
 
-  const totalGuests = filteredResponses.reduce(
+  const totalGuests = attendingResponses.reduce(
     (total, response) => total + getGuestCount(response),
     0
   );
 
-  const lines = filteredResponses.map(formatGuestLine);
+  const lines = attendingResponses.map(formatGuestLine);
 
   await sendLongTelegramMessage(
     env,
     chatId,
-    `${sideIcon} ${side}\n\nԸնդհանուր՝ ${totalGuests} հյուր\n`,
+    `✅ Մասնակցելու են
+
+🎉 ${event.couple_names}
+👥 Ընդհանուր՝ ${totalGuests} հյուր
+`,
     lines,
     MENU_KEYBOARD
   );
@@ -416,7 +407,7 @@ async function sendGuestsBySide(
 async function sendDeclinedGuests(
   env,
   chatId,
-  wedding,
+  event,
   responses
 ) {
   const declinedResponses = responses.filter(
@@ -427,7 +418,9 @@ async function sendDeclinedGuests(
     await sendTelegramMessage(
       env,
       chatId,
-      `❌ ${wedding.couple_names}\n\nՉգալու պատասխաններ դեռ չկան։`,
+      `❌ ${event.couple_names}
+
+Մասնակցությունից հրաժարված պատասխաններ դեռ չկան։`,
       MENU_KEYBOARD
     );
 
@@ -442,19 +435,113 @@ async function sendDeclinedGuests(
   await sendLongTelegramMessage(
     env,
     chatId,
-    `❌ Չեն գալու\n\n💍 ${wedding.couple_names}\n`,
+    `❌ Չեն մասնակցելու
+
+🎉 ${event.couple_names}
+`,
     lines,
     MENU_KEYBOARD
   );
 }
 
-async function showMainMenu(env, chatId, wedding) {
+async function sendWelcomeMessage(env, chatId) {
+  const text = `
+🎉 Բարի գալուստ Invite Bot
+
+Այս bot-ի միջոցով կարող եք հետևել ձեր միջոցառման հրավերների պատասխաններին։
+
+Սկսելու համար բացեք ձեզ ուղարկված հատուկ Telegram հղումը կամ գրեք՝
+
+/start ՄԻԱՑՄԱՆ_ԿՈԴ
+
+Օրինակ՝
+/start OA2027
+
+Միացնելուց հետո կարող եք տեսնել մասնակցության վիճակագրությունը, հյուրերի ցանկը և նոր պատասխանները։
+`.trim();
+
+  await sendTelegramMessage(env, chatId, text);
+}
+
+async function sendHelpMessage(env, chatId, event) {
+  const text = `
+ℹ️ Ինչպես օգտվել bot-ից
+
+🎉 ${event.couple_names}
+
+📊 Վիճակագրություն
+Ցույց է տալիս ստացված պատասխանների և հաստատված հյուրերի քանակը։
+
+📋 Հյուրերի ցանկ
+Ցույց է տալիս միջոցառման բոլոր պատասխանները։
+
+✅ Մասնակցելու են
+Ցույց է տալիս մասնակցությունը հաստատած հյուրերին։
+
+❌ Չեն մասնակցելու
+Ցույց է տալիս մասնակցությունից հրաժարված հյուրերին։
+
+🔄 Թարմացնել
+Ցույց է տալիս վերջին վիճակագրությունը։
+
+Կարող եք նաև օգտագործել՝
+
+/stats
+/list
+/attending
+/declined
+/menu
+/help
+`.trim();
+
   await sendTelegramMessage(
     env,
     chatId,
-    `💍 ${wedding.couple_names}
+    text,
+    MENU_KEYBOARD
+  );
+}
+
+async function showMainMenu(env, chatId, event) {
+  await sendTelegramMessage(
+    env,
+    chatId,
+    `🎉 ${event.couple_names}
+
+Բարի վերադարձ 👋
 
 Ընտրեք անհրաժեշտ բաժինը ներքևի կոճակներից։`,
+    MENU_KEYBOARD
+  );
+}
+
+async function sendConnectedWelcome(
+  env,
+  chatId,
+  event,
+  responses
+) {
+  const statisticsText = buildStatisticsText(
+    event,
+    responses
+  );
+
+  const text = `
+✅ Telegram հաշիվը հաջողությամբ միացվեց։
+
+🎉 Միջոցառում՝ ${event.couple_names}
+
+Այսուհետ հյուրերի նոր պատասխանները կստանաք այս bot-ում։
+
+${statisticsText}
+
+⬇️ Ընտրեք անհրաժեշտ բաժինը ներքևի կոճակներից։
+`.trim();
+
+  await sendTelegramMessage(
+    env,
+    chatId,
+    text,
     MENU_KEYBOARD
   );
 }
@@ -487,27 +574,24 @@ export async function onRequestPost(context) {
     chatId = String(message.chat.id);
     const text = message.text?.trim() || "";
 
-    /*
-      /start CONNECTION_CODE
-    */
     if (text.startsWith("/start")) {
       const parts = text.split(/\s+/);
+
       const connectionCode = parts[1]
         ?.trim()
         .toUpperCase();
 
       if (connectionCode) {
-        const wedding =
-          await findWeddingByConnectionCode(
-            env,
-            connectionCode
-          );
+        const event = await findEventByConnectionCode(
+          env,
+          connectionCode
+        );
 
-        if (!wedding) {
+        if (!event) {
           await sendTelegramMessage(
             env,
             chatId,
-            `❌ «${connectionCode}» կոդով ակտիվ հարսանիք չի գտնվել։`
+            `❌ «${connectionCode}» կոդով ակտիվ միջոցառում չի գտնվել։`
           );
 
           return jsonResponse({
@@ -516,14 +600,13 @@ export async function onRequestPost(context) {
         }
 
         if (
-          wedding.expires_at &&
-          new Date(wedding.expires_at).getTime() <=
-            Date.now()
+          event.expires_at &&
+          new Date(event.expires_at).getTime() <= Date.now()
         ) {
           await sendTelegramMessage(
             env,
             chatId,
-            "❌ Այս հարսանիքի համակարգի ժամկետն ավարտվել է։"
+            "❌ Այս միջոցառման համակարգի օգտագործման ժամկետն ավարտվել է։"
           );
 
           return jsonResponse({
@@ -533,19 +616,20 @@ export async function onRequestPost(context) {
 
         await saveTelegramChatId(
           env,
-          wedding.id,
+          event.id,
           chatId
         );
 
-        await sendTelegramMessage(
+        const responses = await getEventResponses(
+          env,
+          event.id
+        );
+
+        await sendConnectedWelcome(
           env,
           chatId,
-          `✅ Telegram հաշիվը հաջողությամբ միացվեց։
-
-💍 Հարսանիք՝ ${wedding.couple_names}
-
-Այսուհետ RSVP պատասխանները կստանաք այս bot-ում։`,
-          MENU_KEYBOARD
+          event,
+          responses
         );
 
         return jsonResponse({
@@ -553,17 +637,11 @@ export async function onRequestPost(context) {
         });
       }
 
-      const connectedWedding =
-        await findWeddingByChatId(env, chatId);
+      const connectedEvent =
+        await findEventByChatId(env, chatId);
 
-      if (!connectedWedding) {
-        await sendTelegramMessage(
-          env,
-          chatId,
-          `Բարի գալուստ։
-
-Telegram-ը միացնելու համար օգտագործեք ձեզ ուղարկված հատուկ հղումը։`
-        );
+      if (!connectedEvent) {
+        await sendWelcomeMessage(env, chatId);
 
         return jsonResponse({
           success: true
@@ -573,7 +651,7 @@ Telegram-ը միացնելու համար օգտագործեք ձեզ ուղար
       await showMainMenu(
         env,
         chatId,
-        connectedWedding
+        connectedEvent
       );
 
       return jsonResponse({
@@ -581,19 +659,13 @@ Telegram-ը միացնելու համար օգտագործեք ձեզ ուղար
       });
     }
 
-    const wedding = await findWeddingByChatId(
+    const event = await findEventByChatId(
       env,
       chatId
     );
 
-    if (!wedding) {
-      await sendTelegramMessage(
-        env,
-        chatId,
-        `❌ Ձեր Telegram հաշիվը դեռ որևէ հարսանիքի միացված չէ։
-
-Օգտագործեք ձեզ ուղարկված հատուկ միացման հղումը։`
-      );
+    if (!event) {
+      await sendWelcomeMessage(env, chatId);
 
       return jsonResponse({
         success: true
@@ -601,13 +673,13 @@ Telegram-ը միացնելու համար օգտագործեք ձեզ ուղար
     }
 
     if (
-      wedding.expires_at &&
-      new Date(wedding.expires_at).getTime() <= Date.now()
+      event.expires_at &&
+      new Date(event.expires_at).getTime() <= Date.now()
     ) {
       await sendTelegramMessage(
         env,
         chatId,
-        "❌ Այս հարսանիքի համակարգի ժամկետն ավարտվել է։"
+        "❌ Այս միջոցառման համակարգի օգտագործման ժամկետն ավարտվել է։"
       );
 
       return jsonResponse({
@@ -615,9 +687,9 @@ Telegram-ը միացնելու համար օգտագործեք ձեզ ուղար
       });
     }
 
-    const responses = await getWeddingResponses(
+    const responses = await getEventResponses(
       env,
-      wedding.id
+      event.id
     );
 
     const normalizedText = text
@@ -633,7 +705,7 @@ Telegram-ը միացնելու համար օգտագործեք ձեզ ուղար
       await sendStatistics(
         env,
         chatId,
-        wedding,
+        event,
         responses
       );
     } else if (
@@ -643,55 +715,43 @@ Telegram-ը միացնելու համար օգտագործեք ձեզ ուղար
       await sendAllGuests(
         env,
         chatId,
-        wedding,
+        event,
         responses
       );
     } else if (
-      normalizedText === "/bride" ||
-      text === "👰 Հարսի կողմ"
+      normalizedText === "/attending" ||
+      text === "✅ Մասնակցելու են"
     ) {
-      await sendGuestsBySide(
+      await sendAttendingGuests(
         env,
         chatId,
-        wedding,
-        responses,
-        "Հարսի կողմ"
-      );
-    } else if (
-      normalizedText === "/groom" ||
-      text === "🤵 Փեսայի կողմ"
-    ) {
-      await sendGuestsBySide(
-        env,
-        chatId,
-        wedding,
-        responses,
-        "Փեսայի կողմ"
+        event,
+        responses
       );
     } else if (
       normalizedText === "/declined" ||
-      text === "❌ Չեն գալու"
+      text === "❌ Չեն մասնակցելու"
     ) {
       await sendDeclinedGuests(
         env,
         chatId,
-        wedding,
+        event,
         responses
       );
     } else if (
-      normalizedText === "/menu" ||
-      normalizedText === "/help"
+      normalizedText === "/help" ||
+      text === "ℹ️ Օգնություն"
     ) {
-      await showMainMenu(
+      await sendHelpMessage(
         env,
         chatId,
-        wedding
+        event
       );
     } else {
       await showMainMenu(
         env,
         chatId,
-        wedding
+        event
       );
     }
 
@@ -726,6 +786,6 @@ Telegram-ը միացնելու համար օգտագործեք ձեզ ուղար
 export function onRequestGet() {
   return jsonResponse({
     success: true,
-    message: "Telegram webhook v2 is working"
+    message: "Invite Bot webhook is working"
   });
 }
