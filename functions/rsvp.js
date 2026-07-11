@@ -73,6 +73,21 @@ export async function onRequestPost(context) {
     const attendance = data.attendance?.trim();
     const message = data.message?.trim() || null;
 
+    const localPhone = String(data.phone || "").replace(/\D/g, "");
+
+    if (!/^[1-9]\d{7}$/.test(localPhone)) {
+      return jsonResponse(
+        {
+          success: false,
+          message:
+            "Հեռախոսահամարը պետք է բաղկացած լինի 8 թվից՝ առանց սկզբի 0-ի։"
+        },
+        400
+      );
+    }
+
+const normalizedPhone = `374${localPhone}`;
+
     if (!eventId || !name || !attendance) {
       return jsonResponse(
         {

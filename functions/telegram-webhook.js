@@ -1001,4 +1001,4 @@ export function onRequestGet() {
     success: true,
     message: "Multilingual Invite Bot webhook is working"
   });
-}
+}``
