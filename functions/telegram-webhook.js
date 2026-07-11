@@ -1,21 +1,219 @@
-const MENU_KEYBOARD = {
-  keyboard: [
-    [
-      { text: "📊 Վիճակագրություն" },
-      { text: "📋 Հյուրերի ցանկ" }
-    ],
-    [
-      { text: "✅ Մասնակցելու են" },
-      { text: "❌ Չեն մասնակցելու" }
-    ],
-    [
-      { text: "🔄 Թարմացնել" },
-      { text: "ℹ️ Օգնություն" }
-    ]
-  ],
-  resize_keyboard: true,
-  is_persistent: true
+const TRANSLATIONS = {
+  hy: {
+    buttons: {
+      stats: "📊 Վիճակագրություն",
+      list: "📋 Հյուրերի ցանկ",
+      attending: "✅ Մասնակցելու են",
+      declined: "❌ Չեն մասնակցելու",
+      refresh: "🔄 Թարմացնել",
+      help: "ℹ️ Օգնություն"
+    },
+
+    welcomeTitle: "🎉 Բարի գալուստ Invite Bot",
+    welcomeText:
+      "Այս bot-ի միջոցով կարող եք հետևել ձեր միջոցառման հրավերների պատասխաններին։",
+    startInstruction:
+      "Սկսելու համար օգտագործեք ձեզ ուղարկված հատուկ հղումը կամ գրեք՝",
+    startExample: "/start ՄԻԱՑՄԱՆ_ԿՈԴ",
+
+    connected: "✅ Telegram հաշիվը հաջողությամբ միացվեց։",
+    event: "🎉 Միջոցառում",
+    connectedInfo:
+      "Այսուհետ հյուրերի նոր պատասխանները կստանաք այս bot-ում։",
+    chooseSection: "Ընտրեք անհրաժեշտ բաժինը ներքևի կոճակներից։",
+    welcomeBack: "Բարի վերադարձ 👋",
+
+    invalidCode: "կոդով ակտիվ միջոցառում չի գտնվել։",
+    expired: "❌ Այս միջոցառման օգտագործման ժամկետն ավարտվել է։",
+    notConnected:
+      "❌ Ձեր Telegram հաշիվը դեռ որևէ միջոցառման միացված չէ։",
+
+    statsTitle: "📊 Մասնակցության վիճակագրություն",
+    totalResponses: "📝 Ընդհանուր պատասխաններ",
+    attendingResponses: "✅ Մասնակցելու են",
+    totalGuests: "👥 Հաստատված հյուրերի թիվ",
+    declinedResponses: "❌ Չեն մասնակցելու",
+
+    guestListTitle: "📋 Հյուրերի ցանկ",
+    noResponses: "Դեռ հյուրերի պատասխաններ չկան։",
+    attendingTitle: "✅ Մասնակցելու են",
+    noAttending: "Դեռ հաստատված մասնակցություններ չկան։",
+    declinedTitle: "❌ Չեն մասնակցելու",
+    noDeclined: "Մասնակցությունից հրաժարված պատասխաններ դեռ չկան։",
+    guestsTotal: "Ընդհանուր",
+    guestWord: "հյուր",
+
+    helpTitle: "ℹ️ Ինչպես օգտվել bot-ից",
+    helpStats:
+      "📊 Վիճակագրություն — ցույց է տալիս պատասխանների և հաստատված հյուրերի քանակը։",
+    helpList:
+      "📋 Հյուրերի ցանկ — ցույց է տալիս միջոցառման բոլոր պատասխանները։",
+    helpAttending:
+      "✅ Մասնակցելու են — ցույց է տալիս մասնակցությունը հաստատած հյուրերին։",
+    helpDeclined:
+      "❌ Չեն մասնակցելու — ցույց է տալիս հրաժարված պատասխանները։",
+    helpRefresh:
+      "🔄 Թարմացնել — ցույց է տալիս վերջին վիճակագրությունը։",
+
+    genericError:
+      "❌ Տվյալները ստանալու ժամանակ սխալ տեղի ունեցավ։ Խնդրում ենք փորձել կրկին։"
+  },
+
+  ru: {
+    buttons: {
+      stats: "📊 Статистика",
+      list: "📋 Список гостей",
+      attending: "✅ Будут участвовать",
+      declined: "❌ Не будут участвовать",
+      refresh: "🔄 Обновить",
+      help: "ℹ️ Помощь"
+    },
+
+    welcomeTitle: "🎉 Добро пожаловать в Invite Bot",
+    welcomeText:
+      "С помощью этого бота вы можете отслеживать ответы гостей на приглашение.",
+    startInstruction:
+      "Для начала используйте специальную ссылку или отправьте:",
+    startExample: "/start КОД_ПОДКЛЮЧЕНИЯ",
+
+    connected: "✅ Telegram успешно подключён.",
+    event: "🎉 Мероприятие",
+    connectedInfo:
+      "Теперь новые ответы гостей будут приходить в этот бот.",
+    chooseSection: "Выберите нужный раздел с помощью кнопок ниже.",
+    welcomeBack: "С возвращением 👋",
+
+    invalidCode: "— активное мероприятие с таким кодом не найдено.",
+    expired: "❌ Срок действия этого мероприятия истёк.",
+    notConnected:
+      "❌ Ваш Telegram ещё не подключён ни к одному мероприятию.",
+
+    statsTitle: "📊 Статистика участия",
+    totalResponses: "📝 Всего ответов",
+    attendingResponses: "✅ Будут участвовать",
+    totalGuests: "👥 Подтверждённое количество гостей",
+    declinedResponses: "❌ Не будут участвовать",
+
+    guestListTitle: "📋 Список гостей",
+    noResponses: "Ответов от гостей пока нет.",
+    attendingTitle: "✅ Будут участвовать",
+    noAttending: "Подтверждённых участников пока нет.",
+    declinedTitle: "❌ Не будут участвовать",
+    noDeclined: "Отказов от участия пока нет.",
+    guestsTotal: "Всего",
+    guestWord: "гостей",
+
+    helpTitle: "ℹ️ Как пользоваться ботом",
+    helpStats:
+      "📊 Статистика — показывает количество ответов и подтверждённых гостей.",
+    helpList:
+      "📋 Список гостей — показывает все ответы по мероприятию.",
+    helpAttending:
+      "✅ Будут участвовать — показывает подтвердивших участие гостей.",
+    helpDeclined:
+      "❌ Не будут участвовать — показывает отказавшихся гостей.",
+    helpRefresh:
+      "🔄 Обновить — показывает актуальную статистику.",
+
+    genericError:
+      "❌ При получении данных произошла ошибка. Попробуйте ещё раз."
+  },
+
+  en: {
+    buttons: {
+      stats: "📊 Statistics",
+      list: "📋 Guest list",
+      attending: "✅ Attending",
+      declined: "❌ Not attending",
+      refresh: "🔄 Refresh",
+      help: "ℹ️ Help"
+    },
+
+    welcomeTitle: "🎉 Welcome to Invite Bot",
+    welcomeText:
+      "This bot helps you track guest responses for your event.",
+    startInstruction:
+      "To begin, use your special connection link or send:",
+    startExample: "/start CONNECTION_CODE",
+
+    connected: "✅ Telegram was connected successfully.",
+    event: "🎉 Event",
+    connectedInfo:
+      "New guest responses will now be delivered to this bot.",
+    chooseSection: "Choose a section using the buttons below.",
+    welcomeBack: "Welcome back 👋",
+
+    invalidCode: "— no active event was found with this code.",
+    expired: "❌ This event has expired.",
+    notConnected:
+      "❌ Your Telegram account is not connected to an event yet.",
+
+    statsTitle: "📊 Attendance statistics",
+    totalResponses: "📝 Total responses",
+    attendingResponses: "✅ Attending",
+    totalGuests: "👥 Confirmed guests",
+    declinedResponses: "❌ Not attending",
+
+    guestListTitle: "📋 Guest list",
+    noResponses: "There are no guest responses yet.",
+    attendingTitle: "✅ Attending",
+    noAttending: "There are no confirmed guests yet.",
+    declinedTitle: "❌ Not attending",
+    noDeclined: "There are no declined responses yet.",
+    guestsTotal: "Total",
+    guestWord: "guests",
+
+    helpTitle: "ℹ️ How to use the bot",
+    helpStats:
+      "📊 Statistics — shows response and confirmed guest totals.",
+    helpList:
+      "📋 Guest list — shows all responses for the event.",
+    helpAttending:
+      "✅ Attending — shows guests who confirmed attendance.",
+    helpDeclined:
+      "❌ Not attending — shows guests who declined.",
+    helpRefresh:
+      "🔄 Refresh — shows the latest statistics.",
+
+    genericError:
+      "❌ An error occurred while loading the data. Please try again."
+  }
 };
+
+function normalizeLanguage(language) {
+  if (language === "ru" || language === "en" || language === "hy") {
+    return language;
+  }
+
+  return "hy";
+}
+
+function getTranslation(language) {
+  return TRANSLATIONS[normalizeLanguage(language)];
+}
+
+function createMenu(language) {
+  const t = getTranslation(language);
+
+  return {
+    keyboard: [
+      [
+        { text: t.buttons.stats },
+        { text: t.buttons.list }
+      ],
+      [
+        { text: t.buttons.attending },
+        { text: t.buttons.declined }
+      ],
+      [
+        { text: t.buttons.refresh },
+        { text: t.buttons.help }
+      ]
+    ],
+    resize_keyboard: true,
+    is_persistent: true
+  };
+}
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -72,8 +270,7 @@ async function sendTelegramMessage(
     console.error("Telegram send error:", result);
 
     throw new Error(
-      result.description ||
-        "Telegram հաղորդագրությունը չհաջողվեց ուղարկել։"
+      result.description || "Telegram message could not be sent."
     );
   }
 
@@ -85,7 +282,7 @@ async function sendLongTelegramMessage(
   chatId,
   title,
   lines,
-  replyMarkup = null
+  language
 ) {
   const maxLength = 3500;
   let currentText = title;
@@ -106,22 +303,19 @@ async function sendLongTelegramMessage(
       env,
       chatId,
       currentText,
-      replyMarkup
+      createMenu(language)
     );
   }
 }
 
-async function findEventByConnectionCode(
-  env,
-  connectionCode
-) {
+async function findEventByConnectionCode(env, connectionCode) {
   const baseUrl = getSupabaseBaseUrl(env.SUPABASE_URL);
 
   const query = new URLSearchParams({
     connection_code: `eq.${connectionCode}`,
     is_active: "eq.true",
     select:
-      "id,wedding_id,couple_names,telegram_chat_id,connection_code,expires_at"
+      "id,wedding_id,couple_names,telegram_chat_id,connection_code,expires_at,language"
   });
 
   const response = await fetch(
@@ -141,9 +335,7 @@ async function findEventByConnectionCode(
       responseText
     );
 
-    throw new Error(
-      `Event lookup failed: ${response.status}`
-    );
+    throw new Error(`Event lookup failed: ${response.status}`);
   }
 
   const events = JSON.parse(responseText);
@@ -158,7 +350,7 @@ async function findEventByChatId(env, chatId) {
     telegram_chat_id: `eq.${chatId}`,
     is_active: "eq.true",
     select:
-      "id,wedding_id,couple_names,telegram_chat_id,connection_code,expires_at",
+      "id,wedding_id,couple_names,telegram_chat_id,connection_code,expires_at,language",
     order: "created_at.desc",
     limit: "1"
   });
@@ -180,9 +372,7 @@ async function findEventByChatId(env, chatId) {
       responseText
     );
 
-    throw new Error(
-      `Event chat lookup failed: ${response.status}`
-    );
+    throw new Error(`Event chat lookup failed: ${response.status}`);
   }
 
   const events = JSON.parse(responseText);
@@ -190,11 +380,7 @@ async function findEventByChatId(env, chatId) {
   return events[0] || null;
 }
 
-async function saveTelegramChatId(
-  env,
-  eventDatabaseId,
-  chatId
-) {
+async function saveTelegramChatId(env, eventDatabaseId, chatId) {
   const baseUrl = getSupabaseBaseUrl(env.SUPABASE_URL);
 
   const response = await fetch(
@@ -217,7 +403,7 @@ async function saveTelegramChatId(
 
   if (!response.ok) {
     console.error(
-      "Telegram chat save error:",
+      "Telegram connection save error:",
       response.status,
       responseText
     );
@@ -228,10 +414,7 @@ async function saveTelegramChatId(
   }
 }
 
-async function getEventResponses(
-  env,
-  eventDatabaseId
-) {
+async function getEventResponses(env, eventDatabaseId) {
   const baseUrl = getSupabaseBaseUrl(env.SUPABASE_URL);
 
   const query = new URLSearchParams({
@@ -253,13 +436,13 @@ async function getEventResponses(
 
   if (!response.ok) {
     console.error(
-      "Guest responses lookup error:",
+      "Responses lookup error:",
       response.status,
       responseText
     );
 
     throw new Error(
-      `Guest responses lookup failed: ${response.status}`
+      `Responses lookup failed: ${response.status}`
     );
   }
 
@@ -267,7 +450,25 @@ async function getEventResponses(
 }
 
 function isAttending(response) {
-  return response.attendance === "Մենք կգանք";
+  const value = String(response.attendance || "")
+    .trim()
+    .toLowerCase();
+
+  const acceptedValues = [
+    "մենք կգանք",
+    "կգամ",
+    "мы придём",
+    "мы придем",
+    "я приду",
+    "будем участвовать",
+    "will attend",
+    "we will attend",
+    "i will attend",
+    "attending",
+    "yes"
+  ];
+
+  return acceptedValues.includes(value);
 }
 
 function getGuestCount(response) {
@@ -281,20 +482,23 @@ function getGuestCount(response) {
   );
 }
 
-function formatGuestLine(response, index) {
+function formatGuestLine(response, index, language) {
+  const t = getTranslation(language);
   const attending = isAttending(response);
   const icon = attending ? "✅" : "❌";
 
   const countText = attending
-    ? ` — ${getGuestCount(response)} հյուր`
+    ? ` — ${getGuestCount(response)} ${t.guestWord}`
     : "";
 
   return `${index + 1}. ${icon} ${response.guest_name}${countText}`;
 }
 
 function buildStatisticsText(event, responses) {
-  const attendingResponses = responses.filter(isAttending);
+  const language = normalizeLanguage(event.language);
+  const t = getTranslation(language);
 
+  const attendingResponses = responses.filter(isAttending);
   const declinedResponses = responses.filter(
     (response) => !isAttending(response)
   );
@@ -305,80 +509,79 @@ function buildStatisticsText(event, responses) {
   );
 
   return `
-📊 Մասնակցության վիճակագրություն
+${t.statsTitle}
 
-🎉 ${event.couple_names}
+${t.event}՝ ${event.couple_names}
 
-📝 Ընդհանուր պատասխաններ՝ ${responses.length}
-✅ Մասնակցելու են՝ ${attendingResponses.length} պատասխան
-❌ Չեն մասնակցելու՝ ${declinedResponses.length} պատասխան
-👥 Հաստատված հյուրերի թիվ՝ ${totalGuests}
+${t.totalResponses}՝ ${responses.length}
+${t.attendingResponses}՝ ${attendingResponses.length}
+${t.totalGuests}՝ ${totalGuests}
+${t.declinedResponses}՝ ${declinedResponses.length}
 `.trim();
 }
 
-async function sendStatistics(
-  env,
-  chatId,
-  event,
-  responses
-) {
+async function sendStatistics(env, chatId, event, responses) {
+  const language = normalizeLanguage(event.language);
+
   await sendTelegramMessage(
     env,
     chatId,
     buildStatisticsText(event, responses),
-    MENU_KEYBOARD
+    createMenu(language)
   );
 }
 
-async function sendAllGuests(
-  env,
-  chatId,
-  event,
-  responses
-) {
+async function sendAllGuests(env, chatId, event, responses) {
+  const language = normalizeLanguage(event.language);
+  const t = getTranslation(language);
+
   if (responses.length === 0) {
     await sendTelegramMessage(
       env,
       chatId,
-      `📋 ${event.couple_names}
+      `${t.guestListTitle}
 
-Դեռ հյուրերի պատասխաններ չկան։`,
-      MENU_KEYBOARD
+${t.event}՝ ${event.couple_names}
+
+${t.noResponses}`,
+      createMenu(language)
     );
 
     return;
   }
 
-  const lines = responses.map(formatGuestLine);
+  const lines = responses.map((response, index) =>
+    formatGuestLine(response, index, language)
+  );
 
   await sendLongTelegramMessage(
     env,
     chatId,
-    `📋 Հյուրերի ցանկ
+    `${t.guestListTitle}
 
-🎉 ${event.couple_names}
+${t.event}՝ ${event.couple_names}
 `,
     lines,
-    MENU_KEYBOARD
+    language
   );
 }
 
-async function sendAttendingGuests(
-  env,
-  chatId,
-  event,
-  responses
-) {
+async function sendAttendingGuests(env, chatId, event, responses) {
+  const language = normalizeLanguage(event.language);
+  const t = getTranslation(language);
+
   const attendingResponses = responses.filter(isAttending);
 
   if (attendingResponses.length === 0) {
     await sendTelegramMessage(
       env,
       chatId,
-      `✅ ${event.couple_names}
+      `${t.attendingTitle}
 
-Դեռ հաստատված մասնակցություններ չկան։`,
-      MENU_KEYBOARD
+${t.event}՝ ${event.couple_names}
+
+${t.noAttending}`,
+      createMenu(language)
     );
 
     return;
@@ -389,27 +592,27 @@ async function sendAttendingGuests(
     0
   );
 
-  const lines = attendingResponses.map(formatGuestLine);
+  const lines = attendingResponses.map((response, index) =>
+    formatGuestLine(response, index, language)
+  );
 
   await sendLongTelegramMessage(
     env,
     chatId,
-    `✅ Մասնակցելու են
+    `${t.attendingTitle}
 
-🎉 ${event.couple_names}
-👥 Ընդհանուր՝ ${totalGuests} հյուր
+${t.event}՝ ${event.couple_names}
+${t.guestsTotal}՝ ${totalGuests} ${t.guestWord}
 `,
     lines,
-    MENU_KEYBOARD
+    language
   );
 }
 
-async function sendDeclinedGuests(
-  env,
-  chatId,
-  event,
-  responses
-) {
+async function sendDeclinedGuests(env, chatId, event, responses) {
+  const language = normalizeLanguage(event.language);
+  const t = getTranslation(language);
+
   const declinedResponses = responses.filter(
     (response) => !isAttending(response)
   );
@@ -418,73 +621,51 @@ async function sendDeclinedGuests(
     await sendTelegramMessage(
       env,
       chatId,
-      `❌ ${event.couple_names}
+      `${t.declinedTitle}
 
-Մասնակցությունից հրաժարված պատասխաններ դեռ չկան։`,
-      MENU_KEYBOARD
+${t.event}՝ ${event.couple_names}
+
+${t.noDeclined}`,
+      createMenu(language)
     );
 
     return;
   }
 
   const lines = declinedResponses.map(
-    (response, index) =>
-      `${index + 1}. ${response.guest_name}`
+    (response, index) => `${index + 1}. ${response.guest_name}`
   );
 
   await sendLongTelegramMessage(
     env,
     chatId,
-    `❌ Չեն մասնակցելու
+    `${t.declinedTitle}
 
-🎉 ${event.couple_names}
+${t.event}՝ ${event.couple_names}
 `,
     lines,
-    MENU_KEYBOARD
+    language
   );
 }
 
-async function sendWelcomeMessage(env, chatId) {
-  const text = `
-🎉 Բարի գալուստ Invite Bot
-
-Այս bot-ի միջոցով կարող եք հետևել ձեր միջոցառման հրավերների պատասխաններին։
-
-Սկսելու համար բացեք ձեզ ուղարկված հատուկ Telegram հղումը կամ գրեք՝
-
-/start ՄԻԱՑՄԱՆ_ԿՈԴ
-
-Օրինակ՝
-/start OA2027
-
-Միացնելուց հետո կարող եք տեսնել մասնակցության վիճակագրությունը, հյուրերի ցանկը և նոր պատասխանները։
-`.trim();
-
-  await sendTelegramMessage(env, chatId, text);
-}
-
 async function sendHelpMessage(env, chatId, event) {
+  const language = normalizeLanguage(event.language);
+  const t = getTranslation(language);
+
   const text = `
-ℹ️ Ինչպես օգտվել bot-ից
+${t.helpTitle}
 
-🎉 ${event.couple_names}
+${t.event}՝ ${event.couple_names}
 
-📊 Վիճակագրություն
-Ցույց է տալիս ստացված պատասխանների և հաստատված հյուրերի քանակը։
+${t.helpStats}
 
-📋 Հյուրերի ցանկ
-Ցույց է տալիս միջոցառման բոլոր պատասխանները։
+${t.helpList}
 
-✅ Մասնակցելու են
-Ցույց է տալիս մասնակցությունը հաստատած հյուրերին։
+${t.helpAttending}
 
-❌ Չեն մասնակցելու
-Ցույց է տալիս մասնակցությունից հրաժարված հյուրերին։
+${t.helpDeclined}
 
-🔄 Թարմացնել
-Ցույց է տալիս վերջին վիճակագրությունը։
-
-Կարող եք նաև օգտագործել՝
+${t.helpRefresh}
 
 /stats
 /list
@@ -498,51 +679,73 @@ async function sendHelpMessage(env, chatId, event) {
     env,
     chatId,
     text,
-    MENU_KEYBOARD
+    createMenu(language)
   );
+}
+
+async function sendWelcomeMessage(
+  env,
+  chatId,
+  telegramLanguageCode
+) {
+  const language = normalizeLanguage(
+    String(telegramLanguageCode || "").slice(0, 2)
+  );
+
+  const t = getTranslation(language);
+
+  const text = `
+${t.welcomeTitle}
+
+${t.welcomeText}
+
+${t.startInstruction}
+
+/start CODE
+
+${t.startExample}
+`.trim();
+
+  await sendTelegramMessage(env, chatId, text);
 }
 
 async function showMainMenu(env, chatId, event) {
+  const language = normalizeLanguage(event.language);
+  const t = getTranslation(language);
+
   await sendTelegramMessage(
     env,
     chatId,
-    `🎉 ${event.couple_names}
+    `${t.event}՝ ${event.couple_names}
 
-Բարի վերադարձ 👋
+${t.welcomeBack}
 
-Ընտրեք անհրաժեշտ բաժինը ներքևի կոճակներից։`,
-    MENU_KEYBOARD
+${t.chooseSection}`,
+    createMenu(language)
   );
 }
 
-async function sendConnectedWelcome(
-  env,
-  chatId,
-  event,
-  responses
-) {
-  const statisticsText = buildStatisticsText(
-    event,
-    responses
-  );
+async function sendConnectedWelcome(env, chatId, event, responses) {
+  const language = normalizeLanguage(event.language);
+  const t = getTranslation(language);
 
   const text = `
-✅ Telegram հաշիվը հաջողությամբ միացվեց։
+${t.connected}
 
-🎉 Միջոցառում՝ ${event.couple_names}
+${t.event}՝ ${event.couple_names}
 
-Այսուհետ հյուրերի նոր պատասխանները կստանաք այս bot-ում։
+${t.connectedInfo}
 
-${statisticsText}
+${buildStatisticsText(event, responses)}
 
-⬇️ Ընտրեք անհրաժեշտ բաժինը ներքևի կոճակներից։
+⬇️ ${t.chooseSection}
 `.trim();
 
   await sendTelegramMessage(
     env,
     chatId,
     text,
-    MENU_KEYBOARD
+    createMenu(language)
   );
 }
 
@@ -550,6 +753,7 @@ export async function onRequestPost(context) {
   const { request, env } = context;
 
   let chatId = null;
+  let currentLanguage = "hy";
 
   try {
     if (
@@ -558,7 +762,7 @@ export async function onRequestPost(context) {
       !env.SUPABASE_SECRET_KEY
     ) {
       throw new Error(
-        "Backend-ի environment variables-ը բացակայում են։"
+        "Backend environment variables are missing."
       );
     }
 
@@ -566,12 +770,14 @@ export async function onRequestPost(context) {
     const message = update.message;
 
     if (!message?.chat) {
-      return jsonResponse({
-        success: true
-      });
+      return jsonResponse({ success: true });
     }
 
     chatId = String(message.chat.id);
+
+    const telegramLanguageCode =
+      message.from?.language_code || "hy";
+
     const text = message.text?.trim() || "";
 
     if (text.startsWith("/start")) {
@@ -588,16 +794,23 @@ export async function onRequestPost(context) {
         );
 
         if (!event) {
+          const fallbackLanguage = normalizeLanguage(
+            telegramLanguageCode.slice(0, 2)
+          );
+
+          const t = getTranslation(fallbackLanguage);
+
           await sendTelegramMessage(
             env,
             chatId,
-            `❌ «${connectionCode}» կոդով ակտիվ միջոցառում չի գտնվել։`
+            `❌ «${connectionCode}» ${t.invalidCode}`
           );
 
-          return jsonResponse({
-            success: true
-          });
+          return jsonResponse({ success: true });
         }
+
+        currentLanguage = normalizeLanguage(event.language);
+        const t = getTranslation(currentLanguage);
 
         if (
           event.expires_at &&
@@ -606,19 +819,13 @@ export async function onRequestPost(context) {
           await sendTelegramMessage(
             env,
             chatId,
-            "❌ Այս միջոցառման համակարգի օգտագործման ժամկետն ավարտվել է։"
+            t.expired
           );
 
-          return jsonResponse({
-            success: true
-          });
+          return jsonResponse({ success: true });
         }
 
-        await saveTelegramChatId(
-          env,
-          event.id,
-          chatId
-        );
+        await saveTelegramChatId(env, event.id, chatId);
 
         const responses = await getEventResponses(
           env,
@@ -632,21 +839,27 @@ export async function onRequestPost(context) {
           responses
         );
 
-        return jsonResponse({
-          success: true
-        });
+        return jsonResponse({ success: true });
       }
 
-      const connectedEvent =
-        await findEventByChatId(env, chatId);
+      const connectedEvent = await findEventByChatId(
+        env,
+        chatId
+      );
 
       if (!connectedEvent) {
-        await sendWelcomeMessage(env, chatId);
+        await sendWelcomeMessage(
+          env,
+          chatId,
+          telegramLanguageCode
+        );
 
-        return jsonResponse({
-          success: true
-        });
+        return jsonResponse({ success: true });
       }
+
+      currentLanguage = normalizeLanguage(
+        connectedEvent.language
+      );
 
       await showMainMenu(
         env,
@@ -654,37 +867,31 @@ export async function onRequestPost(context) {
         connectedEvent
       );
 
-      return jsonResponse({
-        success: true
-      });
+      return jsonResponse({ success: true });
     }
 
-    const event = await findEventByChatId(
-      env,
-      chatId
-    );
+    const event = await findEventByChatId(env, chatId);
 
     if (!event) {
-      await sendWelcomeMessage(env, chatId);
+      await sendWelcomeMessage(
+        env,
+        chatId,
+        telegramLanguageCode
+      );
 
-      return jsonResponse({
-        success: true
-      });
+      return jsonResponse({ success: true });
     }
+
+    currentLanguage = normalizeLanguage(event.language);
+    const t = getTranslation(currentLanguage);
 
     if (
       event.expires_at &&
       new Date(event.expires_at).getTime() <= Date.now()
     ) {
-      await sendTelegramMessage(
-        env,
-        chatId,
-        "❌ Այս միջոցառման համակարգի օգտագործման ժամկետն ավարտվել է։"
-      );
+      await sendTelegramMessage(env, chatId, t.expired);
 
-      return jsonResponse({
-        success: true
-      });
+      return jsonResponse({ success: true });
     }
 
     const responses = await getEventResponses(
@@ -697,10 +904,13 @@ export async function onRequestPost(context) {
       .trim()
       .toLowerCase();
 
+    const menu = createMenu(currentLanguage);
+    const buttons = t.buttons;
+
     if (
       normalizedText === "/stats" ||
-      text === "📊 Վիճակագրություն" ||
-      text === "🔄 Թարմացնել"
+      text === buttons.stats ||
+      text === buttons.refresh
     ) {
       await sendStatistics(
         env,
@@ -710,7 +920,7 @@ export async function onRequestPost(context) {
       );
     } else if (
       normalizedText === "/list" ||
-      text === "📋 Հյուրերի ցանկ"
+      text === buttons.list
     ) {
       await sendAllGuests(
         env,
@@ -720,7 +930,7 @@ export async function onRequestPost(context) {
       );
     } else if (
       normalizedText === "/attending" ||
-      text === "✅ Մասնակցելու են"
+      text === buttons.attending
     ) {
       await sendAttendingGuests(
         env,
@@ -730,7 +940,7 @@ export async function onRequestPost(context) {
       );
     } else if (
       normalizedText === "/declined" ||
-      text === "❌ Չեն մասնակցելու"
+      text === buttons.declined
     ) {
       await sendDeclinedGuests(
         env,
@@ -740,37 +950,40 @@ export async function onRequestPost(context) {
       );
     } else if (
       normalizedText === "/help" ||
-      text === "ℹ️ Օգնություն"
+      text === buttons.help
     ) {
       await sendHelpMessage(
         env,
         chatId,
         event
       );
+    } else if (normalizedText === "/menu") {
+      await showMainMenu(env, chatId, event);
     } else {
-      await showMainMenu(
+      await sendTelegramMessage(
         env,
         chatId,
-        event
+        t.chooseSection,
+        menu
       );
     }
 
-    return jsonResponse({
-      success: true
-    });
+    return jsonResponse({ success: true });
   } catch (error) {
     console.error("Telegram webhook error:", error);
 
     if (chatId) {
       try {
+        const t = getTranslation(currentLanguage);
+
         await sendTelegramMessage(
           env,
           chatId,
-          "❌ Տվյալները ստանալու ժամանակ սխալ տեղի ունեցավ։ Խնդրում ենք փորձել կրկին։"
+          t.genericError
         );
       } catch (telegramError) {
         console.error(
-          "Could not send Telegram error message:",
+          "Could not send Telegram error:",
           telegramError
         );
       }
@@ -786,6 +999,6 @@ export async function onRequestPost(context) {
 export function onRequestGet() {
   return jsonResponse({
     success: true,
-    message: "Invite Bot webhook is working"
+    message: "Multilingual Invite Bot webhook is working"
   });
 }
