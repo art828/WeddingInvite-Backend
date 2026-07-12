@@ -414,6 +414,43 @@ async function saveTelegramChatId(env, eventDatabaseId, chatId) {
   }
 }
 
+async function disconnectTelegramChat(
+  env,
+  eventDatabaseId
+) {
+  const baseUrl = getSupabaseBaseUrl(env.SUPABASE_URL);
+
+  const response = await fetch(
+    `${baseUrl}/rest/v1/weddings?id=eq.${encodeURIComponent(
+      eventDatabaseId
+    )}`,
+    {
+      method: "PATCH",
+      headers: getSupabaseHeaders(env, {
+        "Content-Type": "application/json",
+        Prefer: "return=minimal"
+      }),
+      body: JSON.stringify({
+        telegram_chat_id: null
+      })
+    }
+  );
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    console.error(
+      "Telegram disconnect error:",
+      response.status,
+      responseText
+    );
+
+    throw new Error(
+      `Telegram disconnect failed: ${response.status}`
+    );
+  }
+}
+
 async function getEventResponses(env, eventDatabaseId) {
   const baseUrl = getSupabaseBaseUrl(env.SUPABASE_URL);
 
@@ -868,13 +905,96 @@ export async function onRequestPost(context) {
           return jsonResponse({ success: true });
         }
 
-        await saveTelegramChatId(env, event.id, chatId);
+        const alreadyConnectedEvent = await findEventByChatId(env, chatId);
 
-        const responses = await getEventResponses(
-          env,
-          event.id
-        );
+        if (
+          alreadyConnectedEvent &&
+          String(alreadyConnectedEvent.id) !==
+            String(event.id)
+        ) {
+          const connectedLanguage = normalizeLanguage(
+            alreadyConnectedEvent.language
+          );
 
+          const connectedEventName =
+            alreadyConnectedEvent.couple_names;
+
+          let message;
+
+          if (connectedLanguage === "ru") {
+            message = `❌ Этот Telegram уже подключён к мероприятию «${connectedEventName}».
+
+        Чтобы подключить другое мероприятие, сначала отправьте команду /disconnect.`;
+          } else if (connectedLanguage === "en") {
+            message = `❌ This Telegram account is already connected to “${connectedEventName}”.
+
+        To connect another event, first send /disconnect.`;
+          } else {
+            message = `❌ Այս Telegram հաշիվն արդեն կապված է «${connectedEventName}» միջոցառմանը։
+
+        Ուրիշ միջոցառում միացնելու համար նախ ուղարկեք /disconnect հրամանը։`;
+          }
+
+          await sendTelegramMessage(
+            env,
+            chatId,
+            message,
+            createMenu(connectedLanguage)
+          );
+
+          return jsonResponse({
+            success: true
+          });
+        }
+
+await saveTelegramChatId(env, event.id, chatId);
+
+const normalizedText = text
+  .replace(/@\w+$/i, "")
+  .trim()
+  .toLowerCase();
+
+if (normalizedText === "/disconnect") {
+  await disconnectTelegramChat(
+    env,
+    event.id
+  );
+
+  let disconnectMessage;
+
+  if (currentLanguage === "ru") {
+    disconnectMessage = `✅ Telegram отключён от мероприятия «${event.couple_names}».
+
+Теперь вы можете подключить другое мероприятие с помощью специальной ссылки или команды /start КОД.`;
+  } else if (currentLanguage === "en") {
+    disconnectMessage = `✅ Telegram was disconnected from “${event.couple_names}”.
+
+You can now connect another event using its special link or the /start CODE command.`;
+  } else {
+    disconnectMessage = `✅ Telegram հաշիվն անջատվեց «${event.couple_names}» միջոցառումից։
+
+Այժմ կարող եք միացնել ուրիշ միջոցառում՝ օգտագործելով հատուկ հղումը կամ /start ԿՈԴ հրամանը։`;
+  }
+
+  await sendTelegramMessage(
+    env,
+    chatId,
+    disconnectMessage,
+    {
+      remove_keyboard: true
+    }
+  );
+
+  return jsonResponse({
+    success: true
+  });
+}
+
+
+const responses = await getEventResponses(
+  env,
+  event.id
+);
         await sendConnectedWelcome(
           env,
           chatId,
@@ -941,11 +1061,6 @@ export async function onRequestPost(context) {
       env,
       event.id
     );
-
-    const normalizedText = text
-      .replace(/@\w+$/i, "")
-      .trim()
-      .toLowerCase();
 
     const menu = createMenu(currentLanguage);
     const buttons = t.buttons;
