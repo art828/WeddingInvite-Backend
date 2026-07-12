@@ -499,6 +499,7 @@ function buildStatisticsText(event, responses) {
   const t = getTranslation(language);
 
   const attendingResponses = responses.filter(isAttending);
+
   const declinedResponses = responses.filter(
     (response) => !isAttending(response)
   );
@@ -508,16 +509,58 @@ function buildStatisticsText(event, responses) {
     0
   );
 
-  return `
-${t.statsTitle}
+  const brideGuests = attendingResponses
+    .filter(
+      (response) =>
+        String(response.side || "").trim() === "Հարսի կողմ"
+    )
+    .reduce(
+      (total, response) => total + getGuestCount(response),
+      0
+    );
 
-${t.event}՝ ${event.couple_names}
+  const groomGuests = attendingResponses
+    .filter(
+      (response) =>
+        String(response.side || "").trim() === "Փեսայի կողմ"
+    )
+    .reduce(
+      (total, response) => total + getGuestCount(response),
+      0
+    );
 
-${t.totalResponses}՝ ${responses.length}
-${t.attendingResponses}՝ ${attendingResponses.length}
-${t.totalGuests}՝ ${totalGuests}
-${t.declinedResponses}՝ ${declinedResponses.length}
-`.trim();
+  const hasSideData = responses.some(
+    (response) =>
+      String(response.side || "").trim() !== ""
+  );
+
+  const lines = [
+    t.statsTitle,
+    "",
+    `${t.event}՝ ${event.couple_names}`,
+    "",
+    `${t.totalResponses}՝ ${responses.length}`,
+    `${t.attendingResponses}՝ ${attendingResponses.length}`,
+    `${t.totalGuests}՝ ${totalGuests}`,
+    `${t.declinedResponses}՝ ${declinedResponses.length}`
+  ];
+
+  if (hasSideData) {
+    lines.push("");
+
+    if (language === "hy") {
+      lines.push(`👰 Հարսի կողմից՝ ${brideGuests} հյուր`);
+      lines.push(`🤵 Փեսայի կողմից՝ ${groomGuests} հյուր`);
+    } else if (language === "ru") {
+      lines.push(`👰 Со стороны невесты: ${brideGuests}`);
+      lines.push(`🤵 Со стороны жениха: ${groomGuests}`);
+    } else {
+      lines.push(`👰 Bride's side: ${brideGuests}`);
+      lines.push(`🤵 Groom's side: ${groomGuests}`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 async function sendStatistics(env, chatId, event, responses) {
