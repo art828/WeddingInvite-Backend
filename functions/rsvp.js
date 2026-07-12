@@ -20,11 +20,15 @@ function getSupabaseBaseUrl(url) {
     .replace(/\/+$/, "");
 }
 
-async function sendTelegramMessage(
-  env,
-  chatId,
-  text
-) {
+function getSupabaseHeaders(env, extraHeaders = {}) {
+  return {
+    apikey: env.SUPABASE_SECRET_KEY,
+    Accept: "application/json",
+    ...extraHeaders
+  };
+}
+
+async function sendTelegramMessage(env, chatId, text) {
   const response = await fetch(
     `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
     {
@@ -46,7 +50,7 @@ async function sendTelegramMessage(
 
     throw new Error(
       result.description ||
-        "Telegram հաղորդագրությունը չուղարկվեց։"
+        "Telegram հաղորդագրությունը չհաջողվեց ուղարկել։"
     );
   }
 }
@@ -73,6 +77,7 @@ export async function onRequestPost(context) {
     const attendance = data.attendance?.trim();
     const message = data.message?.trim() || null;
 
+    // Հեռացնում ենք բացատները, +, գծիկները և այլ նշանները։
     const localPhone = String(data.phone || "").replace(/\D/g, "");
 
     if (!/^[1-9]\d{7}$/.test(localPhone)) {
@@ -86,7 +91,8 @@ export async function onRequestPost(context) {
       );
     }
 
-const normalizedPhone = `374${localPhone}`;
+    // Supabase-ում համարը պահվում է մեկ միասնական ձևաչափով։
+    const normalizedPhone = `374${localPhone}`;
 
     if (!eventId || !name || !attendance) {
       return jsonResponse(
@@ -119,7 +125,10 @@ const normalizedPhone = `374${localPhone}`;
     }
 
     const isAttending =
-      attendance === "Մենք կգանք";
+      attendance === "Մենք կգանք" ||
+      attendance === "Мы придём" ||
+      attendance === "Мы придем" ||
+      attendance === "Will attend";
 
     const guestCount = isAttending
       ? Math.min(
@@ -131,30 +140,25 @@ const normalizedPhone = `374${localPhone}`;
         )
       : 0;
 
-    const baseUrl = getSupabaseBaseUrl(
-      env.SUPABASE_URL
-    );
+    const baseUrl = getSupabaseBaseUrl(env.SUPABASE_URL);
 
+    // Գտնում ենք միջոցառումը readable ID-ով։
     const eventQuery = new URLSearchParams({
       wedding_id: `eq.${eventId}`,
       is_active: "eq.true",
       select:
-        "id,wedding_id,couple_names,telegram_chat_id,expires_at"
+        "id,wedding_id,couple_names,telegram_chat_id,expires_at,language"
     });
 
     const eventResponse = await fetch(
       `${baseUrl}/rest/v1/weddings?${eventQuery.toString()}`,
       {
         method: "GET",
-        headers: {
-          apikey: env.SUPABASE_SECRET_KEY,
-          Accept: "application/json"
-        }
+        headers: getSupabaseHeaders(env)
       }
     );
 
-    const eventResponseText =
-      await eventResponse.text();
+    const eventResponseText = await eventResponse.text();
 
     if (!eventResponse.ok) {
       console.error(
@@ -189,8 +193,7 @@ const normalizedPhone = `374${localPhone}`;
 
     if (
       event.expires_at &&
-      new Date(event.expires_at).getTime() <=
-        Date.now()
+      new Date(event.expires_at).getTime() <= Date.now()
     ) {
       return jsonResponse(
         {
@@ -213,35 +216,91 @@ const normalizedPhone = `374${localPhone}`;
       );
     }
 
-    const insertResponse = await fetch(
-      `${baseUrl}/rest/v1/rsvp_responses`,
+    /*
+      Ստուգում ենք՝ այս հեռախոսահամարով պատասխան արդեն կա՞։
+      Դա պետք է Telegram-ում տարբերակելու համար՝
+      նոր պատասխան է, թե թարմացում։
+    */
+    const existingQuery = new URLSearchParams({
+      wedding_db_id: `eq.${event.id}`,
+      phone: `eq.${normalizedPhone}`,
+      select:
+        "id,guest_name,attendance,guests,side,message",
+      limit: "1"
+    });
+
+    const existingResponse = await fetch(
+      `${baseUrl}/rest/v1/rsvp_responses?${existingQuery.toString()}`,
+      {
+        method: "GET",
+        headers: getSupabaseHeaders(env)
+      }
+    );
+
+    const existingResponseText =
+      await existingResponse.text();
+
+    if (!existingResponse.ok) {
+      console.error(
+        "Existing response lookup error:",
+        existingResponse.status,
+        existingResponseText
+      );
+
+      return jsonResponse(
+        {
+          success: false,
+          message:
+            "Չհաջողվեց ստուգել նախորդ պատասխանը։"
+        },
+        500
+      );
+    }
+
+    const existingResponses = JSON.parse(
+      existingResponseText
+    );
+
+    const previousResponse =
+      existingResponses[0] || null;
+
+    /*
+      UPSERT՝
+
+      եթե wedding_db_id + phone արդեն կա՝ UPDATE,
+      եթե չկա՝ INSERT։
+    */
+    const upsertResponse = await fetch(
+      `${baseUrl}/rest/v1/rsvp_responses?on_conflict=wedding_db_id,phone`,
       {
         method: "POST",
-        headers: {
-          apikey: env.SUPABASE_SECRET_KEY,
+        headers: getSupabaseHeaders(env, {
           "Content-Type": "application/json",
-          Prefer: "return=representation"
-        },
+          Prefer:
+            "resolution=merge-duplicates,return=representation"
+        }),
         body: JSON.stringify({
           wedding_db_id: event.id,
           wedding_id: event.wedding_id,
           guest_name: name,
+          phone: normalizedPhone,
           side,
           attendance,
           guests: guestCount,
-          message
+          message,
+          updated_at: new Date().toISOString()
         })
       }
     );
 
-    const insertResponseText =
-      await insertResponse.text();
+    const upsertResponseText =
+      await upsertResponse.text();
 
-    if (!insertResponse.ok) {
+    if (!upsertResponse.ok) {
       console.error(
-        "Guest response insert error:",
-        insertResponse.status,
-        insertResponseText
+        "Guest response upsert error:",
+        upsertResponse.status,
+        upsertResponseText
       );
 
       return jsonResponse(
@@ -254,16 +313,45 @@ const normalizedPhone = `374${localPhone}`;
       );
     }
 
-    const telegramMessage = `
+    const formattedPhone =
+      `+374 ${localPhone.slice(0, 2)} ` +
+      `${localPhone.slice(2, 5)} ` +
+      `${localPhone.slice(5)}`;
+
+    let telegramMessage;
+
+    if (previousResponse) {
+      telegramMessage = `
+♻️ Հյուրի պատասխանը թարմացվեց
+
+🎉 Միջոցառում՝ ${event.couple_names}
+👤 Հյուր՝ ${name}
+📞 Հեռախոս՝ ${formattedPhone}
+${side ? `🏷 Խումբ՝ ${side}` : ""}
+
+Նախորդ պատասխան՝
+${previousResponse.attendance}
+👥 ${previousResponse.guests || 0} հյուր
+
+Նոր պատասխան՝
+${attendance}
+👥 ${guestCount} հյուր
+
+💬 Մեկնաբանություն՝ ${message || "-"}
+`.trim();
+    } else {
+      telegramMessage = `
 📩 Նոր պատասխան
 
 🎉 Միջոցառում՝ ${event.couple_names}
 👤 Հյուր՝ ${name}
+📞 Հեռախոս՝ ${formattedPhone}
 ${side ? `🏷 Խումբ՝ ${side}` : ""}
 ✅ Պատասխան՝ ${attendance}
 👥 Հյուրերի թիվ՝ ${guestCount}
 💬 Մեկնաբանություն՝ ${message || "-"}
 `.trim();
+    }
 
     try {
       await sendTelegramMessage(
@@ -281,6 +369,7 @@ ${side ? `🏷 Խումբ՝ ${side}` : ""}
         {
           success: false,
           saved: true,
+          updated: Boolean(previousResponse),
           message:
             "Ձեր պատասխանը պահպանվել է, բայց կազմակերպչին ուղարկվող հաղորդագրությունը չի հասել։"
         },
@@ -290,8 +379,10 @@ ${side ? `🏷 Խումբ՝ ${side}` : ""}
 
     return jsonResponse({
       success: true,
-      message:
-        "Շնորհակալություն։ Ձեր պատասխանը հաջողությամբ ուղարկվել է։"
+      updated: Boolean(previousResponse),
+      message: previousResponse
+        ? "Ձեր պատասխանը հաջողությամբ թարմացվել է։"
+        : "Շնորհակալություն։ Ձեր պատասխանը հաջողությամբ ուղարկվել է։"
     });
   } catch (error) {
     console.error("Guest response error:", error);
@@ -317,6 +408,6 @@ export function onRequestOptions() {
 export function onRequestGet() {
   return jsonResponse({
     success: true,
-    message: "Invite response API is working"
+    message: "Invite response API with phone upsert is working"
   });
 }
